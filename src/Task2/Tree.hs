@@ -5,7 +5,7 @@
 module Task2.Tree where
 
 import Common.MonoidalTree
-import Task1 (Measured (..), Size)
+import Task1 (Measured (..))
 
 -- * Binary tree definition
 
@@ -41,5 +41,6 @@ branch l r = Branch (measure l <> measure r) l r
 instance MonoidalTree Tree where
   toTree = foldr (<|) Empty
   (<|) a Empty = Leaf a
-  (<|) a t = branch t (Leaf a)
-  (|>) = flip (<|)
+  (<|) a t = branch (Leaf a) t
+  (|>) Empty a = Leaf a
+  (|>) t a = branch t (Leaf a)
