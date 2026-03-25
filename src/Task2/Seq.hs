@@ -4,6 +4,7 @@
 
 module Task2.Seq where
 
+import Common.MonoidalTree (MonoidalTree (..))
 import Common.Sequence
 import Task1 (Measured (..), Size (..))
 import Task2.Tree
@@ -35,18 +36,9 @@ instance Foldable Seq where
 instance Sequence Seq where
   empty = Seq Empty
   toSequence = foldr (+|) empty
-  (+|) a (Seq Empty) = Seq ((leaf . Elem) a)
-  (+|) a (Seq (Leaf b)) = Seq (branch ((leaf . Elem) a) (leaf b))
-  (+|) a (Seq (Branch _ l r)) = Seq (branch (getTree (a +| Seq l)) r)
 
-  -- (+|) a (Seq (Branch _ l r)) = Seq (branch ((getTree .: (+|)) a (Seq l)) r)
-  --   where
-  --     (.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
-  --     (.:) f g x y = f (g x y)
-
-  (|+) (Seq Empty) a = Seq ((leaf . Elem) a)
-  (|+) (Seq (Leaf b)) a = Seq (branch (leaf b) ((leaf . Elem) a))
-  (|+) (Seq (Branch _ l r)) a = Seq (branch l (getTree (Seq r |+ a)))
+  (+|) a (Seq t) = Seq (Elem a <| t)
+  (|+) (Seq t) a = Seq (t |> Elem a)
 
   insertAt :: forall a. Int -> a -> Seq a -> Seq a
   insertAt i a s@(Seq t)
