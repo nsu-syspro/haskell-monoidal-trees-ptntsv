@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 
 -- The above pragma enables all warnings
@@ -17,6 +18,8 @@ data Tree m a
   | Node2 m (Tree m a) (Tree m a)
   | Node3 m (Tree m a) (Tree m a) (Tree m a)
   deriving (Show, Eq)
+
+data TaggedTree m a = Plain (Tree m a) | Pseudo (Tree m a)
 
 -- | Measures given tree using provided measure of 'a'
 instance (Measured m a) => Measured m (Tree m a) where
@@ -45,10 +48,33 @@ node3 l m r = Node3 (measure l <> measure m <> measure r) l m r
 -- * Monoidal tree instance
 
 instance MonoidalTree Tree where
-  toTree = error "TODO: define toTree (MonoidalTree Task3.Tree)"
-  (<|) = error "TODO: define (<|) (MonoidalTree Task3.Tree)"
-  (|>) = error ""
-
--- (|>) t@(Leaf x) y
---   | measure t < measure y = node2 (leaf x) (leaf y)
---   | otherwise = node2 (leaf y) (leaf x)
+  toTree = foldr (<|) Empty
+  (<|) x t =
+    let prepend Empty = Plain $ leaf x
+        prepend (Leaf y) = Pseudo $ node2 (leaf x) (leaf y)
+        prepend (Node2 _ l r) = case prepend l of
+          Pseudo (Node2 _ ll lr) -> Plain $ node3 ll lr r
+          Plain n -> Plain $ node2 n r
+          _ -> error "unreachable"
+        prepend (Node3 _ l m r) = case prepend l of
+          Pseudo pn@(Node2 _ _ _) -> Pseudo $ node2 pn (node2 m r)
+          Plain n -> Plain $ node3 n m r
+          _ -> error "unreachable"
+     in case prepend t of
+          Pseudo t' -> t'
+          Plain t' -> t'
+  (|>) :: forall m a. (Measured m a) => Tree m a -> a -> Tree m a
+  (|>) t x =
+    let append Empty = Plain $ leaf x
+        append (Leaf y) = Pseudo $ node2 (leaf y) (leaf x)
+        append (Node2 _ l r) = case append r of
+          Pseudo (Node2 _ rl rr) -> Plain $ node3 l rl rr
+          Plain n -> Plain $ node2 l n
+          _ -> error "unreachable"
+        append (Node3 _ l m r) = case append r of
+          Pseudo pn@(Node2 _ _ _) -> Pseudo $ node2 (node2 l m) pn
+          Plain n -> Plain $ node3 l m n
+          _ -> error "unreachable"
+     in case append t of
+          Pseudo t' -> t'
+          Plain t' -> t'
