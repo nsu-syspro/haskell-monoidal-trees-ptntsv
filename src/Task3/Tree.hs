@@ -63,7 +63,6 @@ instance MonoidalTree Tree where
      in case prepend t of
           Pseudo t' -> t'
           Plain t' -> t'
-  (|>) :: forall m a. (Measured m a) => Tree m a -> a -> Tree m a
   (|>) t x =
     let append Empty = Plain $ leaf x
         append (Leaf y) = Pseudo $ node2 (leaf y) (leaf x)
