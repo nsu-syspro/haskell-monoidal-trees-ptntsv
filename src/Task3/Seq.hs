@@ -58,7 +58,7 @@ instance Sequence Seq where
                 lSize = getSize (measure l :: Size a)
             go n (Node3 _ l m r)
               | n < lSize = case go n l of
-                  Pseudo l'@(Node2 _ _ _) -> Pseudo $ node2 l' (node2 m r)
+                  Pseudo (Node2 _ ll lr) -> Pseudo $ node2 (node2 ll lr) (node2 m r)
                   Plain l' -> Plain $ node3 l' m r
                   _ -> error "unreachable"
               | n < mSize = case go (n - lSize) m of
@@ -66,7 +66,7 @@ instance Sequence Seq where
                   Plain m' -> Plain $ node3 l m' r
                   _ -> error "unreachable"
               | otherwise = case go (n - mSize) r of
-                  Pseudo r'@(Node2 _ _ _) -> Pseudo $ node2 r' (node2 l m)
+                  Pseudo (Node2 _ rl rr) -> Pseudo $ node2 (node2 l m) (node2 rl rr)
                   Plain r' -> Plain $ node3 l m r'
                   _ -> error "unreachable"
               where
@@ -77,7 +77,56 @@ instance Sequence Seq where
               Pseudo t' -> Seq t'
               Plain t' -> Seq t'
 
-  removeAt = error "TODO: define removeAt (Sequence Task3.Seq)"
+  removeAt :: forall a. Int -> Seq a -> Seq a
+  removeAt i s@(Seq t)
+    | i < 0 || i >= length s = s
+    | otherwise =
+        let go n (Node2 _ (Leaf lval) (Leaf rval))
+              | n == 0 = Pseudo $ leaf rval
+              | n == 1 = Pseudo $ leaf lval
+              | otherwise = error "invalid index for Node2"
+            go n (Node3 _ (Leaf lval) (Leaf mval) (Leaf rval))
+              | n == 0 = Plain $ node2 (leaf mval) (leaf rval)
+              | n == 1 = Plain $ node2 (leaf lval) (leaf rval)
+              | n == 2 = Plain $ node2 (leaf lval) (leaf mval)
+              | otherwise = error "invalid index for Node3"
+            go n (Node2 _ l r)
+              | n < lSize = case (go n l, r) of
+                  (Pseudo l', Node2 _ rl rr) -> Pseudo $ node3 l' rl rr
+                  (Pseudo l', Node3 _ rl rm rr) -> Plain $ node2 (node2 l' rl) (node2 rm rr)
+                  (Plain l', _) -> Plain $ node2 l' r
+                  (_, _) -> error "unreachable"
+              | otherwise = case (go (n - lSize) r, l) of
+                  (Pseudo r', Node2 _ ll lr) -> Pseudo $ node3 ll lr r'
+                  (Pseudo r', Node3 _ ll lm lr) -> Plain $ node2 (node2 ll lm) (node2 lr r')
+                  (Plain r', _) -> Plain $ node2 l r'
+                  (_, _) -> error "unreachable"
+              where
+                lSize = getSize (measure l :: Size a)
+            go n (Node3 _ l m r)
+              | n < lSize = case (go n l, m) of
+                  (Pseudo l', Node2 _ ml mr) -> Plain $ node2 (node3 l' ml mr) r
+                  (Pseudo l', Node3 _ ml mm mr) -> Plain $ node3 (node2 l' ml) (node2 mm mr) r
+                  (Plain l', _) -> Plain $ node3 l' m r
+                  (_, _) -> error "unreachable"
+              | n < mSize = case (go (n - lSize) m, l) of
+                  (Pseudo m', Node2 _ ll lr) -> Plain $ node2 (node3 ll lr m') r
+                  (Pseudo m', Node3 _ ll lm lr) -> Plain $ node3 (node2 ll lm) (node2 lr m') r
+                  (Plain m', _) -> Plain $ node3 l m' r
+                  (_, _) -> error "unreachable"
+              | otherwise = case (go (n - mSize) r, m) of
+                  (Pseudo r', Node2 _ ml mr) -> Plain $ node2 l (node3 ml mr r')
+                  (Pseudo r', Node3 _ ml mm mr) -> Plain $ node3 l (node2 ml mm) (node2 mr r')
+                  (Plain r', _) -> Plain $ node3 l m r'
+                  (_, _) -> error "unreachable"
+              where
+                lSize = getSize (measure l :: Size a)
+                mSize = lSize + getSize (measure m :: Size a)
+            go 0 (Leaf _) = Plain $ Empty
+            go _ _ = error "unreachable"
+         in case go i t of
+              Pseudo t' -> Seq t'
+              Plain t' -> Seq t'
 
   elemAt :: forall a. Int -> Seq a -> Maybe a
   elemAt i (Seq t) = go i t
