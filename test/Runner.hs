@@ -22,14 +22,11 @@ main :: IO ()
 main =
   defaultMainWithIngredients
     (includingOptions [Option (Proxy :: Proxy TaskOpt)] : defaultIngredients)
-    ( askOption $ \(TaskOpt task) ->
-        case task of
-          Just content -> askSuite content
-          _ -> testGroup "all" allSuites
-    )
+    (askOption $ \(TaskOpt task) -> askSuite task)
 
-askSuite :: String -> TestTree
-askSuite name = testGroup name (fromMaybe allSuites $ lookup name suitesByTask)
+askSuite :: Maybe String -> TestTree
+askSuite (Just name) = testGroup name (fromMaybe allSuites $ lookup name suitesByTask)
+askSuite Nothing = testGroup "all" allSuites
 
 allSuites :: [TestTree]
 allSuites = concatMap snd suitesByTask
