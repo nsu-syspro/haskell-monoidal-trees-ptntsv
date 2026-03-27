@@ -5,6 +5,7 @@
 
 module Task2.PQueue where
 
+import Common.MonoidalTree (MonoidalTree (..))
 import Common.PriorityQueue
 import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
 import Task2.Tree
@@ -32,11 +33,10 @@ instance PriorityQueue PQueue where
       go acc Empty = acc
       go acc (Leaf a) = getEntry a : acc
       go acc (Branch _ l r) = go (go acc l) r
-  insert k v (PQueue Empty) = PQueue $ leaf $ Entry (k, v)
-  insert k v (PQueue t) = PQueue $ branch t (leaf $ Entry (k, v))
+
+  insert k v (PQueue t) = PQueue $ (Entry (k, v)) <| t
 
   extractWith :: forall k v m. (Ord k, (Monoid m, Eq m)) => (MinMax k -> m) -> PQueue k v -> Maybe (v, PQueue k v)
-  extractWith _ (PQueue Empty) = Nothing
   extractWith pick (PQueue t) =
     let go (Branch _ l r)
           | lmm <> rmm == lmm = case go l of

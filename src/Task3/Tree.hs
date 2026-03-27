@@ -45,6 +45,73 @@ node2 l r = Node2 (measure l <> measure r) l r
 node3 :: (Measured m a) => Tree m a -> Tree m a -> Tree m a -> Tree m a
 node3 l m r = Node3 (measure l <> measure m <> measure r) l m r
 
+procInsertTerm :: (Measured m a) => a -> Tree m a -> TaggedTree m a
+procInsertTerm x (Leaf ey) = Pseudo $ (node2 (leaf x) (leaf ey))
+procInsertTerm _ _ = error "unreachable"
+
+repairLeftInsert :: (Measured m a) => Tree m a -> TaggedTree m a -> TaggedTree m a
+repairLeftInsert (Node2 _ _ r) tagged = case tagged of
+  Pseudo (Node2 _ ll lr) -> Plain $ node3 ll lr r
+  Plain l' -> Plain $ node2 l' r
+  _ -> error "unreachable"
+repairLeftInsert (Node3 _ _ m r) tagged = case tagged of
+  Pseudo (Node2 _ ll lr) -> Pseudo $ node2 (node2 ll lr) (node2 m r)
+  Plain l' -> Plain $ node3 l' m r
+  _ -> error "unreachable"
+repairLeftInsert _ _ = error "unreachable"
+
+repairRightInsert :: (Measured m a) => Tree m a -> TaggedTree m a -> TaggedTree m a
+repairRightInsert (Node2 _ l _) tagged = case tagged of
+  Pseudo (Node2 _ rl rr) -> Plain $ node3 l rl rr
+  Plain r' -> Plain $ node2 l r'
+  _ -> error "unreachable"
+repairRightInsert (Node3 _ l m _) tagged = case tagged of
+  Pseudo (Node2 _ rl rr) -> Pseudo $ node2 (node2 l m) (node2 rl rr)
+  Plain r' -> Plain $ node3 l m r'
+  _ -> error "unreachable"
+repairRightInsert _ _ = error "unreachable"
+
+repairMidInsert :: (Measured m a) => Tree m a -> TaggedTree m a -> TaggedTree m a
+repairMidInsert (Node3 _ l _ r) tagged = case tagged of
+  Pseudo (Node2 _ ml mr) -> Pseudo $ node2 (node2 l ml) (node2 mr r)
+  Plain m' -> Plain $ node3 l m' r
+  _ -> error "unreachable"
+repairMidInsert _ _ = error ""
+
+repairLeftRemove :: (Measured m a) => Tree m a -> Tree m a -> TaggedTree m a -> TaggedTree m a
+repairLeftRemove (Node2 _ _ r) sibling taggedLeft = case (sibling, taggedLeft) of
+  (Node2 _ rl rr, Pseudo l') -> Pseudo $ node3 l' rl rr
+  (Node3 _ rl rm rr, Pseudo l') -> Plain $ node2 (node2 l' rl) (node2 rm rr)
+  (_, Plain l') -> Plain $ node2 l' r
+  (_, _) -> error "unreachable"
+repairLeftRemove (Node3 _ _ m r) sibling taggedLeft = case (sibling, taggedLeft) of
+  (Node2 _ ml mr, Pseudo l') -> Plain $ node2 (node3 l' ml mr) r
+  (Node3 _ ml mm mr, Pseudo l') -> Plain $ node3 (node2 l' ml) (node2 mm mr) r
+  (_, Plain l') -> Plain $ node3 l' m r
+  (_, _) -> error "unreachable"
+repairLeftRemove _ _ _ = error "unreachable"
+
+repairRightRemove :: (Measured m a) => Tree m a -> Tree m a -> TaggedTree m a -> TaggedTree m a
+repairRightRemove (Node2 _ l _) sibling taggedRight = case (sibling, taggedRight) of
+  (Node2 _ ll lr, Pseudo r') -> Pseudo $ node3 ll lr r'
+  (Node3 _ ll lm lr, Pseudo r') -> Plain $ node2 (node2 ll lm) (node2 lr r')
+  (_, Plain r') -> Plain $ node2 l r'
+  (_, _) -> error "unreachable"
+repairRightRemove (Node3 _ l m _) sibling taggedRight = case (sibling, taggedRight) of
+  (Node2 _ ml mr, Pseudo r') -> Plain $ node2 l (node3 ml mr r')
+  (Node3 _ ml mm mr, Pseudo r') -> Plain $ node3 l (node2 ml mm) (node2 mr r')
+  (_, Plain r') -> Plain $ node3 l m r'
+  (_, _) -> error "unreachable"
+repairRightRemove _ _ _ = error "unreachable"
+
+repairMidRemove :: (Measured m a) => Tree m a -> Tree m a -> TaggedTree m a -> TaggedTree m a
+repairMidRemove (Node3 _ l _ r) sibling taggedMid = case (sibling, taggedMid) of
+  (Node2 _ ll lr, Pseudo m') -> Plain $ node2 (node3 ll lr m') r
+  (Node3 _ ll lm lr, Pseudo m') -> Plain $ node3 (node2 ll lm) (node2 lr m') r
+  (_, Plain m') -> Plain $ node3 l m' r
+  (_, _) -> error "unreachable"
+repairMidRemove _ _ _ = error "unreachable"
+
 -- * Monoidal tree instance
 
 instance MonoidalTree Tree where

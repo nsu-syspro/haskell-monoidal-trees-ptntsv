@@ -44,31 +44,16 @@ instance Sequence Seq where
     | i <= 0 = Seq $ Elem x <| t
     | i >= length s = Seq $ t |> Elem x
     | otherwise =
-        let go 0 (Leaf ey) = Pseudo $ node2 (leaf $ Elem x) (leaf ey)
-            go n (Node2 _ l r)
-              | n < lSize = case go n l of
-                  Pseudo (Node2 _ ll lr) -> Plain $ node3 ll lr r
-                  Plain l' -> Plain $ node2 l' r
-                  _ -> error "unreachable"
-              | otherwise = case go (n - lSize) r of
-                  Pseudo (Node2 _ rl rr) -> Plain $ node3 l rl rr
-                  Plain r' -> Plain $ node2 l r'
-                  _ -> error "unreachable"
+        let go 0 t'@(Leaf _) = procInsertTerm (Elem x) t'
+            go n t'@(Node2 _ l r)
+              | n < lSize = repairLeftInsert t' (go n l)
+              | otherwise = repairRightInsert t' (go (n - lSize) r)
               where
                 lSize = getSize (measure l :: Size a)
-            go n (Node3 _ l m r)
-              | n < lSize = case go n l of
-                  Pseudo (Node2 _ ll lr) -> Pseudo $ node2 (node2 ll lr) (node2 m r)
-                  Plain l' -> Plain $ node3 l' m r
-                  _ -> error "unreachable"
-              | n < mSize = case go (n - lSize) m of
-                  Pseudo (Node2 _ ml mr) -> Pseudo $ node2 (node2 l ml) (node2 mr r)
-                  Plain m' -> Plain $ node3 l m' r
-                  _ -> error "unreachable"
-              | otherwise = case go (n - mSize) r of
-                  Pseudo (Node2 _ rl rr) -> Pseudo $ node2 (node2 l m) (node2 rl rr)
-                  Plain r' -> Plain $ node3 l m r'
-                  _ -> error "unreachable"
+            go n t'@(Node3 _ l m r)
+              | n < lSize = repairLeftInsert t' (go n l)
+              | n < mSize = repairMidInsert t' (go (n - lSize) m)
+              | otherwise = repairRightInsert t' (go (n - mSize) r)
               where
                 lSize = getSize (measure l :: Size a)
                 mSize = lSize + getSize (measure m :: Size a)
@@ -90,35 +75,15 @@ instance Sequence Seq where
               | n == 1 = Plain $ node2 (leaf lval) (leaf rval)
               | n == 2 = Plain $ node2 (leaf lval) (leaf mval)
               | otherwise = error "invalid index for Node3"
-            go n (Node2 _ l r)
-              | n < lSize = case (go n l, r) of
-                  (Pseudo l', Node2 _ rl rr) -> Pseudo $ node3 l' rl rr
-                  (Pseudo l', Node3 _ rl rm rr) -> Plain $ node2 (node2 l' rl) (node2 rm rr)
-                  (Plain l', _) -> Plain $ node2 l' r
-                  (_, _) -> error "unreachable"
-              | otherwise = case (go (n - lSize) r, l) of
-                  (Pseudo r', Node2 _ ll lr) -> Pseudo $ node3 ll lr r'
-                  (Pseudo r', Node3 _ ll lm lr) -> Plain $ node2 (node2 ll lm) (node2 lr r')
-                  (Plain r', _) -> Plain $ node2 l r'
-                  (_, _) -> error "unreachable"
+            go n t'@(Node2 _ l r)
+              | n < lSize = repairLeftRemove t' r (go n l)
+              | otherwise = repairRightRemove t' l (go (n - lSize) r)
               where
                 lSize = getSize (measure l :: Size a)
-            go n (Node3 _ l m r)
-              | n < lSize = case (go n l, m) of
-                  (Pseudo l', Node2 _ ml mr) -> Plain $ node2 (node3 l' ml mr) r
-                  (Pseudo l', Node3 _ ml mm mr) -> Plain $ node3 (node2 l' ml) (node2 mm mr) r
-                  (Plain l', _) -> Plain $ node3 l' m r
-                  (_, _) -> error "unreachable"
-              | n < mSize = case (go (n - lSize) m, l) of
-                  (Pseudo m', Node2 _ ll lr) -> Plain $ node2 (node3 ll lr m') r
-                  (Pseudo m', Node3 _ ll lm lr) -> Plain $ node3 (node2 ll lm) (node2 lr m') r
-                  (Plain m', _) -> Plain $ node3 l m' r
-                  (_, _) -> error "unreachable"
-              | otherwise = case (go (n - mSize) r, m) of
-                  (Pseudo r', Node2 _ ml mr) -> Plain $ node2 l (node3 ml mr r')
-                  (Pseudo r', Node3 _ ml mm mr) -> Plain $ node3 l (node2 ml mm) (node2 mr r')
-                  (Plain r', _) -> Plain $ node3 l m r'
-                  (_, _) -> error "unreachable"
+            go n t'@(Node3 _ l m r)
+              | n < lSize = repairLeftRemove t' m (go n l)
+              | n < mSize = repairMidRemove t' l (go (n - lSize) m)
+              | otherwise = repairRightRemove t' m (go (n - mSize) r)
               where
                 lSize = getSize (measure l :: Size a)
                 mSize = lSize + getSize (measure m :: Size a)
