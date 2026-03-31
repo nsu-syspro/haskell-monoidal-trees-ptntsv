@@ -82,7 +82,7 @@ instance PriorityQueue PQueue where
         go t'@(Node3 _ l m r)
           | lm <> mm <> rm == lm = repairWith (repairLeftRemove t' m) (go l)
           | lm <> mm <> rm == mm = repairWith (repairMidRemove t' l) (go m)
-          | otherwise = repairWith (repairMidRemove t' m) (go r)
+          | otherwise = repairWith (repairRightRemove t' m) (go r)
           where
             lm = pick (measure l :: MinMax k)
             mm = pick (measure m :: MinMax k)

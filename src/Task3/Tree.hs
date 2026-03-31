@@ -45,9 +45,9 @@ node2 l r = Node2 (measure l <> measure r) l r
 node3 :: (Measured m a) => Tree m a -> Tree m a -> Tree m a -> Tree m a
 node3 l m r = Node3 (measure l <> measure m <> measure r) l m r
 
-procInsertTerm :: (Measured m a) => a -> Tree m a -> TaggedTree m a
-procInsertTerm x (Leaf ey) = Pseudo $ (node2 (leaf x) (leaf ey))
-procInsertTerm _ _ = error "unreachable"
+repairTermInsert :: (Measured m a) => a -> Tree m a -> TaggedTree m a
+repairTermInsert x (Leaf ey) = Pseudo $ (node2 (leaf x) (leaf ey))
+repairTermInsert _ _ = error "unreachable"
 
 repairLeftInsert :: (Measured m a) => Tree m a -> TaggedTree m a -> TaggedTree m a
 repairLeftInsert (Node2 _ _ r) tagged = case tagged of

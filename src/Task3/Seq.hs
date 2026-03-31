@@ -44,7 +44,7 @@ instance Sequence Seq where
     | i <= 0 = Seq $ Elem x <| t
     | i >= length s = Seq $ t |> Elem x
     | otherwise =
-        let go 0 t'@(Leaf _) = procInsertTerm (Elem x) t'
+        let go 0 t'@(Leaf _) = repairTermInsert (Elem x) t'
             go n t'@(Node2 _ l r)
               | n < lSize = repairLeftInsert t' (go n l)
               | otherwise = repairRightInsert t' (go (n - lSize) r)
