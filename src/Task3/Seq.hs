@@ -36,7 +36,7 @@ instance Foldable Seq where
 
 instance Sequence Seq where
   empty = Seq Empty
-  toSequence = foldr (+|) (Seq Empty)
+  toSequence = foldr (+|) empty
   (+|) a (Seq t) = Seq (Elem a <| t)
   (|+) (Seq t) a = Seq (t |> Elem a)
   insertAt :: forall a. Int -> a -> Seq a -> Seq a

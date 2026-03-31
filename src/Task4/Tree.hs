@@ -36,6 +36,12 @@ data Digit a
   | Four a a a a
   deriving (Show, Eq)
 
+data LView s a = LNil | LCons a (s a)
+  deriving (Show, Eq)
+
+data RView s a = RNil | RCons a (s a)
+  deriving (Show, Eq)
+
 -- | Measures given tree using provided measure of 'a'
 instance (Measured m a) => Measured m (Tree m a) where
   measure Empty = mempty
@@ -80,9 +86,6 @@ node3 l m r = Node3 (measure l <> measure m <> measure r) l m r
 deep :: forall m a. (Measured m a) => Digit a -> Tree m (Node m a) -> Digit a -> Tree m a
 deep pr m sf = Deep (measure pr <> measure m <> measure sf) pr m sf
 
-data LView s a = LNil | LCons a (s a)
-  deriving (Show, Eq)
-
 viewl :: forall m a. (Measured m a) => Tree m a -> LView (Tree m) a
 viewl Empty = LNil
 viewl (Single x) = LCons x Empty
@@ -90,22 +93,24 @@ viewl (Deep _ pr m sf) = case toList pr of
   (p : pr') -> LCons p (deepl pr' m sf)
   _ -> error "unexpected empty Digit in viewl"
 
-toDigitUnsafe :: [a] -> Digit a
-toDigitUnsafe [x1] = One x1
-toDigitUnsafe [x1, x2] = Two x1 x2
-toDigitUnsafe [x1, x2, x3] = Three x1 x2 x3
-toDigitUnsafe [x1, x2, x3, x4] = Four x1 x2 x3 x4
-toDigitUnsafe _ = error "unexpected empty Digit in toDigitUnsafe"
+viewr :: forall m a. (Measured m a) => Tree m a -> RView (Tree m) a
+viewr Empty = RNil
+viewr (Single x) = RCons x Empty
+viewr (Deep _ pr m sf) = case toList sf of
+  [] -> error "unexpected empty Digit in viewr"
+  sf' -> RCons (last sf') (deepr pr m (init sf'))
 
 deepl :: forall m a. (Measured m a) => [a] -> Tree m (Node m a) -> Digit a -> Tree m a
 deepl [] m sf = case viewl m of
   LNil -> toTree sf
   LCons l m' -> deep (toDigitUnsafe $ toList l) m' sf
-  where
-
 deepl pr m sf = deep (toDigitUnsafe $ toList pr) m sf
 
--- deepSafeL Nothing m sf = case viewL
+deepr :: forall m a. (Measured m a) => Digit a -> Tree m (Node m a) -> [a] -> Tree m a
+deepr pr m [] = case viewr m of
+  RNil -> toTree pr
+  RCons r m' -> deep pr m' (toDigitUnsafe $ toList r)
+deepr pr m sf = deep pr m (toDigitUnsafe $ toList sf)
 
 -- * Monoidal tree instance
 
@@ -127,10 +132,19 @@ instance MonoidalTree Tree where
 
 -- * Utility functions
 
+-- | Unsafe convertion from [a] to (Digit a)
+toDigitUnsafe :: [a] -> Digit a
+toDigitUnsafe [x1] = One x1
+toDigitUnsafe [x1, x2] = Two x1 x2
+toDigitUnsafe [x1, x2, x3] = Three x1 x2 x3
+toDigitUnsafe [x1, x2, x3, x4] = Four x1 x2 x3 x4
+toDigitUnsafe _ = error "unexpected empty Digit in toDigitUnsafe"
+
 -- | Split result with left part, middle element and right part
 data Split f a = Split (f a) a (f a)
   deriving (Show, Eq)
 
+-- | Helper function for spliting Digit based on given predicate and starting accumulator value
 splitDigit :: forall m a. (Measured m a) => (m -> Bool) -> m -> Digit a -> Split [] a
 splitDigit p i digit = let Split l x r = (splitDigit' i (toList digit)) in Split l x r
   where
@@ -146,20 +160,31 @@ splitDigit p i digit = let Split l x r = (splitDigit' i (toList digit)) in Split
 -- | Helper function for spliting tree based on given predicate and starting accumulator value
 splitTree :: (Measured m a) => (m -> Bool) -> m -> Tree m a -> Maybe (Split (Tree m) a)
 splitTree _ _ Empty = Nothing
-splitTree _ _ (Single a) = Just (Split Empty a Empty)
+splitTree _ _ (Single a) = Just $ Split Empty a Empty
 splitTree p acc (Deep _ pr m sf)
-  | p mpr = let Split lpr x rpr = splitDigit p acc pr in Just (Split (toTree lpr) x (deepl rpr m sf))
+  | p afterPr = let Split lpr x rpr = splitDigit p acc pr in Just $ Split (toTree lpr) x (deepl rpr m sf)
+  | p afterM = case splitTree p afterPr m of
+      Just (Split ml xs mr) ->
+        let Split l x r = splitDigit p (afterPr <> measure ml) (toDigitUnsafe $ toList xs)
+         in Just $ Split (deepr pr ml l) x (deepl r mr sf)
+      _ -> Nothing
+  | otherwise = let Split lsf x rsf = splitDigit p acc sf in Just $ Split (deepr pr m lsf) x (toTree rsf)
   where
-    mpr = acc <> measure pr
--- mm = acc <> measure m
-splitTree _ _ _ = error "todo"
+    afterPr = acc <> measure pr
+    afterM = afterPr <> measure m
 
 -- | Splits tree based on given predicate
 split :: (Measured m a) => (m -> Bool) -> Tree m a -> (Tree m a, Tree m a)
-split = error "TODO: define split"
+split _ Empty = (Empty, Empty)
+split p xs = case splitTree p mempty xs of
+  Just (Split l x r) -> if p (measure xs) then (l, x <| r) else (xs, Empty)
+  _ -> (Empty, Empty)
 
 -- | Concatenates two trees
 infixr 6 ><
 
 (><) :: (Measured m a) => Tree m a -> Tree m a -> Tree m a
-(><) = error "TODO: define (><)"
+-- (><) t1 t2 = case viewl t2 of
+--   LNil -> t1
+--   LCons x xs -> (t1 |> x) >< xs
+(><) = undefined
