@@ -5,7 +5,8 @@
 
 module Task3.PQueue where
 
-import Common.PriorityQueue
+import Common.MonoidalTree
+import Common.PriorityQueue (PriorityQueue (..))
 import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
 import Task3.Tree
 
@@ -35,26 +36,7 @@ instance PriorityQueue PQueue where
      in go [] t
 
   insert :: forall k v. (Ord k) => k -> v -> PQueue k v -> PQueue k v
-  insert k v (PQueue t) =
-    let go Empty = Plain $ leaf $ Entry (k, v)
-        go (Leaf ey) = Pseudo $ node2 (leaf $ (Entry (k, v))) (leaf ey)
-        go t'@(Node2 _ l r)
-          | lk <> rk == lk = repairLeftInsert t' (go l)
-          | otherwise = repairRightInsert t' (go r)
-          where
-            lk = measure l :: MinMax k
-            rk = measure r :: MinMax k
-        go t'@(Node3 _ l m r)
-          | lk <> rk == lk = repairLeftInsert t' (go l)
-          | lk <> mk == mk = repairMidInsert t' (go m)
-          | otherwise = repairRightInsert t' (go r)
-          where
-            lk = measure l :: MinMax k
-            mk = measure m :: MinMax k
-            rk = measure r :: MinMax k
-     in case go t of
-          Pseudo t' -> PQueue t'
-          Plain t' -> PQueue t'
+  insert k v (PQueue t) = PQueue (t |> (Entry (k, v)))
 
   extractWith :: forall k v m. (Ord k, (Monoid m, Eq m)) => (MinMax k -> m) -> PQueue k v -> Maybe (v, PQueue k v)
   extractWith pick (PQueue t) =

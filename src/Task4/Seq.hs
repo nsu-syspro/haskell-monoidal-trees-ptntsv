@@ -28,13 +28,13 @@ instance Foldable Seq where
   -- An O(1) implementation of length is possible
   -- due to size of the tree being cached at each node
   length :: forall a. Seq a -> Int
-  length = error "TODO: define length (Foldable Task4.Seq)"
+  length (Seq t) = getSize $ (measure t :: Size a)
 
 -- * Sequence instance
 
 instance Sequence Seq where
-  empty = error "TODO: define empty (Sequence Task2.Seq)"
-  toSequence = error "TODO: define toSequence (Sequence Task2.Seq)"
+  empty = Seq $ Empty
+  toSequence = foldr (+|) empty
   (+|) = error "TODO: define (+|) (Sequence Task2.Seq)"
   (|+) = error "TODO: define (|+) (Sequence Task2.Seq)"
   insertAt = error "TODO: define insertAt (Sequence Task2.Seq)"
