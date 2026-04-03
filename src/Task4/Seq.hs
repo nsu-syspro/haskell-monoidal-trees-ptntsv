@@ -8,6 +8,7 @@ import Common.MonoidalTree
 import Common.Sequence
 import Task1 (Measured (..), Size (..))
 import Task4.Tree
+import Prelude hiding (splitAt)
 
 -- * Sequence definition
 
@@ -31,6 +32,14 @@ instance Foldable Seq where
   length :: forall a. Seq a -> Int
   length (Seq t) = getSize $ (measure t :: Size a)
 
+-- * Utility functions
+
+after :: Int -> Size a -> Bool
+after at = (> at) . getSize
+
+splitAt :: (Measured (Size Int) a) => Int -> Tree (Size Int) a -> (Tree (Size Int) a, Tree (Size Int) a)
+splitAt = split . after
+
 -- * Sequence instance
 
 instance Sequence Seq where
@@ -38,12 +47,10 @@ instance Sequence Seq where
   toSequence = foldr (+|) empty
   (+|) x (Seq t) = Seq ((Elem x) <| t)
   (|+) (Seq t) x = Seq (t |> (Elem x))
-  insertAt = error "TODO: define insertAt (Sequence Task2.Seq)"
-  removeAt = error "TODO: define removeAt (Sequence Task2.Seq)"
+
+  insertAt at x (Seq t) = let (l, r) = split (after at) t in Seq ((l |> Elem x) >< r)
+  removeAt at (Seq t) = Seq $ maybe t (\(Split l _ r) -> l >< r) (splitTree (after at) (Size 0) t) -- sic!
 
   elemAt _ (Seq Empty) = Nothing
   elemAt 0 (Seq (Single (Elem x))) = Just x
-  -- elemAt at (Seq t) = case splitTree (\(Size i) -> i > at) (Size 0) t of
-  elemAt at (Seq t) = case splitTree (\(Size i) -> i > at) (Size 0) t of
-    Just (Split _ (Elem x) _) -> Just x
-    Nothing -> Nothing
+  elemAt at (Seq t) = (\(Split _ (Elem x) _) -> x) <$> splitTree (after at) (Size 0) t
