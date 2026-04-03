@@ -145,30 +145,34 @@ data Split f a = Split (f a) a (f a)
   deriving (Show, Eq)
 
 -- | Helper function for spliting Digit based on given predicate and starting accumulator value
-splitDigit :: forall m a. (Measured m a) => (m -> Bool) -> m -> Digit a -> Split [] a
-splitDigit p i digit = let Split l x r = (splitDigit' i (toList digit)) in Split l x r
+splitDigit :: forall m a. (Measured m a) => (m -> Bool) -> m -> Digit a -> Maybe (Split [] a)
+splitDigit p i digit = splitDigit' i (toList digit)
   where
-    splitDigit' :: m -> [a] -> Split [] a
+    splitDigit' :: m -> [a] -> Maybe (Split [] a)
     splitDigit' _ [] = error "unreachable"
-    splitDigit' _ [x] = Split [] x []
+    splitDigit' acc [x]
+      | (not $ p acc) && p (acc <> measure x) = Just $ Split [] x []
+      | otherwise = Nothing
     splitDigit' acc (x : xs)
-      | p acc' = Split [] x xs
-      | otherwise = let Split l y r = splitDigit' acc' xs in Split (x : l) y r
+      | (not $ p acc) && p acc' = Just $ Split [] x xs
+      | otherwise = (\(Split l y r) -> Split (x : l) y r) <$> (splitDigit' acc' xs)
       where
         acc' = acc <> (measure x :: m)
 
 -- | Helper function for spliting tree based on given predicate and starting accumulator value
 splitTree :: (Measured m a) => (m -> Bool) -> m -> Tree m a -> Maybe (Split (Tree m) a)
 splitTree _ _ Empty = Nothing
-splitTree _ _ (Single a) = Just $ Split Empty a Empty
+splitTree p acc (Single a)
+  | (not $ p acc) && p (acc <> measure a) = Just $ Split Empty a Empty
+  | otherwise = Nothing
 splitTree p acc (Deep _ pr m sf)
-  | p afterPr = let Split lpr x rpr = splitDigit p acc pr in Just $ Split (toTree lpr) x (deepl rpr m sf)
+  | p afterPr = (\(Split lpr x rpr) -> Split (toTree lpr) x (deepl rpr m sf)) <$> splitDigit p acc pr
   | p afterM = case splitTree p afterPr m of
-      Just (Split ml xs mr) ->
-        let Split l x r = splitDigit p (afterPr <> measure ml) (toDigitUnsafe $ toList xs)
-         in Just $ Split (deepr pr ml l) x (deepl r mr sf)
+      Just (Split ml xs mr) -> case splitDigit p (afterPr <> measure ml) (toDigitUnsafe $ toList xs) of
+        Just (Split l x r) -> Just $ Split (deepr pr ml l) x (deepl r mr sf)
+        _ -> Nothing
       _ -> Nothing
-  | otherwise = let Split lsf x rsf = splitDigit p acc sf in Just $ Split (deepr pr m lsf) x (toTree rsf)
+  | otherwise = (\(Split lsf x rsf) -> Split (deepr pr m lsf) x (toTree rsf)) <$> splitDigit p afterM sf
   where
     afterPr = acc <> measure pr
     afterM = afterPr <> measure m
@@ -177,14 +181,16 @@ splitTree p acc (Deep _ pr m sf)
 split :: (Measured m a) => (m -> Bool) -> Tree m a -> (Tree m a, Tree m a)
 split _ Empty = (Empty, Empty)
 split p xs = case splitTree p mempty xs of
-  Just (Split l x r) -> if p (measure xs) then (l, x <| r) else (xs, Empty)
-  _ -> (Empty, Empty)
+  Just (Split l x r) -> (l, x <| r)
+  Nothing | p mempty -> (Empty, xs)
+  _ -> (xs, Empty)
 
 -- | Concatenates two trees
 infixr 6 ><
 
 (><) :: (Measured m a) => Tree m a -> Tree m a -> Tree m a
--- (><) t1 t2 = case viewl t2 of
---   LNil -> t1
---   LCons x xs -> (t1 |> x) >< xs
-(><) = undefined
+(><) t1 t2 = case viewl t2 of
+  LNil -> t1
+  LCons x xs -> (t1 |> x) >< xs
+
+-- (><) = undefined
