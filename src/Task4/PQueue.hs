@@ -4,8 +4,10 @@
 
 module Task4.PQueue where
 
+import Common.MonoidalTree
 import Common.PriorityQueue
-import Task1 (Measured (..), MinMax (..))
+import Data.Foldable (Foldable (toList))
+import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
 import Task4.Tree
 
 newtype PQueue k v = PQueue {getTree :: Tree (MinMax k) (Entry k v)}
@@ -17,15 +19,17 @@ newtype Entry k v = Entry {getEntry :: (k, v)}
 
 -- | Measures given entry using both minimum and maximum priority 'k'
 instance (Ord k) => Measured (MinMax k) (Entry k v) where
-  measure = error "TODO: define measure (Measured (MinMax k) (Task4.Entry k v))"
+  measure (Entry (k, _)) = MinMax (Min k, Max k)
 
 -- * Priority queue instance
 
 instance PriorityQueue PQueue where
-  empty = error "TODO: define empty (PriorityQueue Task4.PQueue)"
-  toPriorityQueue = error "TODO: define toPriorityQueue (PriorityQueue Task4.PQueue)"
-  entries = error "TODO: define entries (PriorityQueue Task4.PQueue)"
-  insert = error "TODO: define insert (PriorityQueue Task4.PQueue)"
-  extractWith = error "TODO: define extractMin (PriorityQueue Task3.PQueue)"
-  extractMin = error "TODO: define extractMin (PriorityQueue Task4.PQueue)"
-  extractMax = error "TODO: define extractMax (PriorityQueue Task4.PQueue)"
+  empty = PQueue Empty
+  toPriorityQueue = foldr (uncurry insert) empty
+  entries (PQueue t) = map getEntry (toList t)
+  insert k v (PQueue t) = PQueue (t |> (Entry (k, v)))
+  extractWith pick (PQueue pq) = case splitTree (\mm -> pick mm <> pick (measure pq) == pick mm) mempty pq of
+    Just (Split l (Entry (_, v)) r) -> Just (v, PQueue $ l >< r)
+    _ -> Nothing
+  extractMax = extractWith (\(MinMax (_, m)) -> m)
+  extractMin = extractWith (\(MinMax (m, _)) -> m)

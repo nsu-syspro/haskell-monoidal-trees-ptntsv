@@ -47,10 +47,6 @@ instance Sequence Seq where
   toSequence = foldr (+|) empty
   (+|) x (Seq t) = Seq ((Elem x) <| t)
   (|+) (Seq t) x = Seq (t |> (Elem x))
-
   insertAt at x (Seq t) = let (l, r) = split (after at) t in Seq ((l |> Elem x) >< r)
   removeAt at (Seq t) = Seq $ maybe t (\(Split l _ r) -> l >< r) (splitTree (after at) (Size 0) t) -- sic!
-
-  elemAt _ (Seq Empty) = Nothing
-  elemAt 0 (Seq (Single (Elem x))) = Just x
   elemAt at (Seq t) = (\(Split _ (Elem x) _) -> x) <$> splitTree (after at) (Size 0) t

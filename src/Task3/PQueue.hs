@@ -7,6 +7,7 @@ module Task3.PQueue where
 
 import Common.MonoidalTree
 import Common.PriorityQueue (PriorityQueue (..))
+import Data.Foldable (Foldable (toList))
 import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
 import Task3.Tree
 
@@ -28,12 +29,8 @@ instance (Ord k) => Measured (MinMax k) (Entry k v) where
 instance PriorityQueue PQueue where
   empty = PQueue $ Empty
   toPriorityQueue = foldr (uncurry insert) empty
-  entries (PQueue t) =
-    let go acc Empty = acc
-        go acc (Leaf kv) = getEntry kv : acc
-        go acc (Node2 _ l r) = go (go acc l) r
-        go acc (Node3 _ l m r) = go (go (go acc l) m) r
-     in go [] t
+
+  entries (PQueue t) = map getEntry (toList t)
 
   insert :: forall k v. (Ord k) => k -> v -> PQueue k v -> PQueue k v
   insert k v (PQueue t) = PQueue (t |> (Entry (k, v)))
