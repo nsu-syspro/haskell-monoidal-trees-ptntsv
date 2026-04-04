@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wall #-}
 
 -- The above pragma enables all warnings
@@ -7,7 +9,7 @@ module Task4.PQueue where
 import Common.MonoidalTree
 import Common.PriorityQueue
 import Data.Foldable (Foldable (toList))
-import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
+import Task1 (Max (..), Measured (..), Min (..), MinMax (..), Pick (pick))
 import Task4.Tree
 
 newtype PQueue k v = PQueue {getTree :: Tree (MinMax k) (Entry k v)}
@@ -21,6 +23,13 @@ newtype Entry k v = Entry {getEntry :: (k, v)}
 instance (Ord k) => Measured (MinMax k) (Entry k v) where
   measure (Entry (k, _)) = MinMax (Min k, Max k)
 
+-- * Utility functions
+
+extractWith :: forall f k v. (Ord k, Monoid (f k), Eq (f k), Pick f) => PQueue k v -> Maybe (v, PQueue k v)
+extractWith (PQueue pq) = case splitTree (\mm -> pick @f mm <> pick @f (measure pq) == pick @f mm) mempty pq of
+  Just (Split l (Entry (_, v)) r) -> Just (v, PQueue $ l >< r)
+  _ -> Nothing
+
 -- * Priority queue instance
 
 instance PriorityQueue PQueue where
@@ -28,8 +37,7 @@ instance PriorityQueue PQueue where
   toPriorityQueue = foldr (uncurry insert) empty
   entries (PQueue t) = map getEntry (toList t)
   insert k v (PQueue t) = PQueue (t |> (Entry (k, v)))
-  extractWith pick (PQueue pq) = case splitTree (\mm -> pick mm <> pick (measure pq) == pick mm) mempty pq of
-    Just (Split l (Entry (_, v)) r) -> Just (v, PQueue $ l >< r)
-    _ -> Nothing
-  extractMax = extractWith (\(MinMax (_, m)) -> m)
-  extractMin = extractWith (\(MinMax (m, _)) -> m)
+  extractMin = extractWith @Min
+  extractMax = extractWith @Max
+
+-- extractMin = extractWith (\(MinMax (m, _)) -> m)

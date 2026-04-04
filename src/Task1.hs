@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 
 -- The above pragma enables all warnings
@@ -122,3 +123,12 @@ instance Monoid (Size a) where
 
 instance Measured (Size a) a where
   measure _ = Size 1
+
+class Pick f where
+  pick :: forall k. MinMax k -> f k
+
+instance Pick Min where
+  pick (MinMax (m, _)) = m
+
+instance Pick Max where
+  pick (MinMax (_, m)) = m

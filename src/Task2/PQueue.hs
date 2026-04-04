@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 
@@ -7,7 +8,7 @@ module Task2.PQueue where
 
 import Common.MonoidalTree (MonoidalTree (..))
 import Common.PriorityQueue
-import Task1 (Max (..), Measured (..), Min (..), MinMax (..))
+import Task1 (Max (..), Measured (..), Min (..), MinMax (..), Pick (..))
 import Task2.Tree
 
 -- * Priority queue definition
@@ -23,6 +24,28 @@ newtype Entry k v = Entry {getEntry :: (k, v)}
 instance (Ord k) => Measured (MinMax k) (Entry k v) where
   measure (Entry (k, _)) = MinMax (Min k, Max k)
 
+-- * Utility functions
+
+extractWith :: forall f k v. (Ord k, Monoid (f k), Eq (f k), Pick f) => PQueue k v -> Maybe (v, PQueue k v)
+extractWith (PQueue t) =
+  let go (Branch _ l r)
+        | lmm <> rmm == lmm = case go l of
+            Just (v, Empty) -> Just (v, r)
+            Just (v, lWithoutMin) -> Just (v, branch lWithoutMin r)
+            _ -> Nothing
+        | otherwise = case go r of
+            Just (v, Empty) -> Just (v, l)
+            Just (v, rWithoutMin) -> Just (v, branch l rWithoutMin)
+            _ -> Nothing
+        where
+          lmm = pick @f (measure l :: MinMax k)
+          rmm = pick @f (measure r :: MinMax k)
+      go (Leaf (Entry (_, v))) = Just (v, Empty)
+      go _ = Nothing
+   in case go t of
+        Just (v, t') -> Just (v, PQueue t')
+        _ -> Nothing
+
 -- * Priority queue instance
 
 instance PriorityQueue PQueue where
@@ -36,28 +59,8 @@ instance PriorityQueue PQueue where
 
   insert k v (PQueue t) = PQueue $ (Entry (k, v)) <| t
 
-  extractWith :: forall k v m. (Ord k, (Monoid m, Eq m)) => (MinMax k -> m) -> PQueue k v -> Maybe (v, PQueue k v)
-  extractWith pick (PQueue t) =
-    let go (Branch _ l r)
-          | lmm <> rmm == lmm = case go l of
-              Just (v, Empty) -> Just (v, r)
-              Just (v, lWithoutMin) -> Just (v, branch lWithoutMin r)
-              _ -> Nothing
-          | otherwise = case go r of
-              Just (v, Empty) -> Just (v, l)
-              Just (v, rWithoutMin) -> Just (v, branch l rWithoutMin)
-              _ -> Nothing
-          where
-            lmm = pick (measure l :: MinMax k)
-            rmm = pick (measure r :: MinMax k)
-        go (Leaf (Entry (_, v))) = Just (v, Empty)
-        go _ = Nothing
-     in case go t of
-          Just (v, t') -> Just (v, PQueue t')
-          _ -> Nothing
-
   extractMin :: forall k v. (Ord k) => PQueue k v -> Maybe (v, PQueue k v)
-  extractMin = extractWith (\(MinMax (m, _)) -> m)
+  extractMin = extractWith @Min
 
   extractMax :: forall k v. (Ord k) => PQueue k v -> Maybe (v, PQueue k v)
-  extractMax = extractWith (\(MinMax (_, m)) -> m)
+  extractMax = extractWith @Max

@@ -4,8 +4,6 @@
 
 module Common.PriorityQueue where
 
-import Task1 (MinMax)
-
 -- | Priority queue supporting both highest and lowest priority access
 --
 -- * Priority: 'k'
@@ -22,8 +20,6 @@ class PriorityQueue q where
 
   -- | Inserts given value with priority into queue
   insert :: (Ord k) => k -> v -> q k v -> q k v
-
-  extractWith :: forall k v m. (Ord k, (Monoid m, Eq m)) => (MinMax k -> m) -> q k v -> Maybe (v, q k v)
 
   -- | Returns value with lowest priority paired with queue without
   -- that element wrapped into 'Just' if such element exists (non-empty queue),
