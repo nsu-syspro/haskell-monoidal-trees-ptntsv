@@ -1,25 +1,40 @@
+import Data.Data (Proxy (Proxy), Typeable)
+import Data.Maybe (fromMaybe)
+import Task1Suite (task1Checks, task1Tests)
+import Task2Suite (task2Checks, task2Tests)
+import Task3Suite (task3Checks, task3Tests)
+import Task4Suite (task4Checks, task4Tests)
 import Test.Tasty
+import Test.Tasty.Options (IsOption (..), OptionDescription (..))
 
-import Task1Suite (task1Tests, task1Checks)
-import Task2Suite (task2Tests, task2Checks)
-import Task3Suite (task3Tests, task3Checks)
-import Task4Suite (task4Tests, task4Checks)
+newtype TaskOpt = TaskOpt {getTaskOpt :: Maybe String}
+  deriving (Eq, Ord, Show, Typeable)
+
+instance IsOption TaskOpt where
+  defaultValue = TaskOpt Nothing
+
+  parseValue s = Just (TaskOpt (Just s))
+
+  optionName = pure "task"
+  optionHelp = pure "Run tests for a given task"
 
 main :: IO ()
-main = defaultMain $ testGroup "" [checks, tests]
+main =
+  defaultMainWithIngredients
+    (includingOptions [Option (Proxy :: Proxy TaskOpt)] : defaultIngredients)
+    (askOption $ \(TaskOpt task) -> askSuite task)
 
-checks :: TestTree
-checks = testGroup "Checks"
-  [ task1Checks
-  , task2Checks
-  , task3Checks
-  , task4Checks
-  ]
+askSuite :: Maybe String -> TestTree
+askSuite (Just name) = testGroup name (fromMaybe allSuites $ lookup name suitesByTask)
+askSuite Nothing = testGroup "all" allSuites
 
-tests :: TestTree
-tests = testGroup "Tests"
-  [ task1Tests
-  , task2Tests
-  , task3Tests
-  , task4Tests
+allSuites :: [TestTree]
+allSuites = concatMap snd suitesByTask
+
+suitesByTask :: [(String, [TestTree])]
+suitesByTask =
+  [ ("Task1", [task1Tests, task1Checks]),
+    ("Task2", [task2Tests, task2Checks]),
+    ("Task3", [task3Tests, task3Checks]),
+    ("Task4", [task4Tests, task4Checks])
   ]
